@@ -1,30 +1,41 @@
-# docker build -t ror6dev --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) .
-FROM ruby:2.7
-
-ARG USER_ID
-ARG GROUP_ID
-
-RUN addgroup --gid $GROUP_ID user
-RUN adduser --disabled-password --gecos '' --uid $USER_ID --gid $GROUP_ID user
-
-ENV INSTALL_PATH /opt/app
-RUN mkdir -p $INSTALL_PATH
+FROM ruby:2.7 AS build-env
+ARG INSTALL_PATH=/opt/app
+RUN mkdir -p $INSTALL_PATH/gems
 
 # Install Nodejs
 RUN curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg -o /root/yarn-pubkey.gpg && apt-key add /root/yarn-pubkey.gpg
 RUN echo "deb https://dl.yarnpkg.com/debian/ stable main" > /etc/apt/sources.list.d/yarn.list
 RUN apt-get update && apt-get install -y --no-install-recommends nodejs yarn
 
-RUN chown -R user:user /opt/app
-WORKDIR /opt/app
-COPY ./ .
+WORKDIR $INSTALL_PATH
 RUN gem install rails bundler unicorn
-RUN bundle install
+COPY . .
+# ENV BUNDLE_PATH $INSTALL_PATH/gems
+ENV BUNDLER_WITHOUT "development test assets"
+RUN bundle install && yarn install
+# fake db url to get pass assets:precompile
+ENV DATABASE_URL "postgresql://ror6:mydbpassword@postgres:5432/testdb"
+RUN rm -rf public/assets && rails webpacker:install && rails assets:precompile && rm -rf node_modules
 
-USER $USER_ID
-RUN yarn install --check-files
-RUN rails webpacker:install
-RUN rails assets:precompile
+############### end build ###############
+FROM ruby:2.7-slim-buster
+# FROM ruby:2.7-alpine
 
-#unicorn at tcp/8010
+ARG PACKAGES="tzdata postgresql-client nodejs bash"
+ARG INSTALL_PATH=/opt/app
+
+WORKDIR $INSTALL_PATH
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y $PACKAGES
+
+COPY --from=build-env $INSTALL_PATH $INSTALL_PATH
+COPY --from=build-env /usr/local/bundle/ /usr/local/bundle/
+EXPOSE 8010
+ENV DATABASE_URL "postgresql://postgres:password@postgres:5433/testdb"
+ENV LISTEN_ON 0.0.0.0:8010
+ENV WORKER_PROCESSES 10
+ENV RAILS_ENV production
+ENV RAILS_LOG_TO_STDOUT true
+# ENV DATABASE_URL
 CMD bundle exec unicorn -c config/unicorn.rb
