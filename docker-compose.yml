@@ -1,0 +1,42 @@
+version: "3.7"
+
+services:
+
+  postgres:
+    image: postgres:10.7
+    environment:
+      POSTGRES_USER: ror6
+      POSTGRES_PASSWORD: mydbpassword
+    ports: 
+      - '5432:5432'
+    volumes:
+      - ror6-postgres:/var/lib/postgresql/data
+
+  redis:
+    image: redis:5.0.7
+    ports:
+      - '6379:6379'
+    volumes:
+      - ror6-redis:/var/lib/redis/data
+
+  ror6:
+    image: ror6dev:latest
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+    links:
+      - postgres
+      - redis
+    volumes:
+      - type: bind
+        source: ./
+        target: /opt/app
+    ports:
+      # - '8080:3000'
+      - '8080:8010'
+    env_file:
+      - .env
+
+  
+
+volumes:
+  ror6-postgres:
+  ror6-redis:
