@@ -29,8 +29,10 @@ RUN apt-get update \
     && apt-get upgrade -y \
     && apt-get install -y $PACKAGES
 
-COPY --from=build-env $INSTALL_PATH $INSTALL_PATH
 COPY --from=build-env /usr/local/bundle/ /usr/local/bundle/
+COPY --from=build-env $INSTALL_PATH $INSTALL_PATH
+RUN chown -R nobody:nogroup $INSTALL_PATH
+
 EXPOSE 8010
 ENV DATABASE_URL "postgresql://postgres:password@postgres:5433/testdb"
 ENV LISTEN_ON 0.0.0.0:8010
@@ -38,4 +40,7 @@ ENV WORKER_PROCESSES 10
 ENV RAILS_ENV production
 ENV RAILS_LOG_TO_STDOUT true
 # ENV DATABASE_URL
+# ENV REDIS_URL
+USER nobody
 CMD bundle exec unicorn -c config/unicorn.rb
+
