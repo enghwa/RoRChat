@@ -1,26 +1,21 @@
-# SQLite. Versions 3.8.0 and up are supported.
-#   gem install sqlite3
-#
-#   Ensure the SQLite 3 gem is defined in your Gemfile
-#   gem 'sqlite3'
-#
 default: &default
   adapter: sqlite3
   pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
   timeout: 5000
 
 development:
-  <<: *default
-  database: db/development.sqlite3
+  url: postgresql://ror6:mydbpassword@postgres:5432/testdb
 
-development:
-  url: <%= ENV['DATABASE_URL'].gsub('?', '_development?') %>
-
-test:
-  url: <%= ENV['DATABASE_URL'].gsub('?', '_test?') %>
-
-staging:
-  url: <%= ENV['DATABASE_URL'].gsub('?', '_staging?') %>
-
+template: &template
+  adapter: postgresql
+  pool: 5
+  host: <%= ENV["DATABASE_HOST"] %>
+  port: <%= ENV['DATABASE_PORT'] %>
+  database: <%= ENV['PRODUCTION_DATABASE'] %>
+  username: <%= ENV['DATABASE_USERNAME'] %> 
+  password: <%= ENV['DATABASE_PASSWORD'] %>
+  timeout: 5000
+  
 production:
-  url: <%= ENV['DATABASE_URL'].gsub('?', '_production?') %>
+  <<: *template
+  pool: 10

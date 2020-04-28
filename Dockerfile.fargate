@@ -10,16 +10,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends nodejs yarn
 WORKDIR $INSTALL_PATH
 RUN gem install rails bundler unicorn
 COPY . .
-# ENV BUNDLE_PATH $INSTALL_PATH/gems
+
 ENV BUNDLER_WITHOUT "development test assets"
 RUN bundle install && yarn install
 # fake db url to get pass assets:precompile
-ENV DATABASE_URL "postgresql://ror6:mydbpassword@postgres:5432/testdb"
-RUN rm -rf public/assets && rails webpacker:install && rails assets:precompile && rm -rf node_modules
+# ENV DATABASE_URL "postgresql://ror6:mydbpassword@postgres:5432/testdb"
+# ENV RAILS_ENV test
+# RUN rm -rf public/assets && rails webpacker:install && rails assets:precompile && rm -rf node_modules
+RUN rm -rf public/assets && rails webpacker:install && RAILS_ENV=development rake assets:precompile && rm -rf node_modules
 
 ############### end build ###############
 FROM ruby:2.7-slim-buster
-# FROM ruby:2.7-alpine
 
 ARG PACKAGES="tzdata postgresql-client nodejs bash"
 ARG INSTALL_PATH=/opt/app
@@ -34,13 +35,18 @@ COPY --from=build-env $INSTALL_PATH $INSTALL_PATH
 RUN chown -R nobody:nogroup $INSTALL_PATH
 
 EXPOSE 8010
-ENV DATABASE_URL "postgresql://postgres:password@postgres:5433/testdb"
+
 ENV LISTEN_ON 0.0.0.0:8010
 ENV WORKER_PROCESSES 10
 ENV RAILS_ENV production
 ENV RAILS_LOG_TO_STDOUT true
+ENV SECRET_KEY_BASE XXXXXXXX
 # ENV DATABASE_URL
 # ENV REDIS_URL
+ENV DATABASE_HOST postgres
+ENV DATABASE_PORT 5432
+ENV PRODUCTION_DATABASE mydb
+ENV DATABASE_USERNAME postgres
+ENV DATABASE_PASSWORD password
 USER nobody
 CMD bundle exec unicorn -c config/unicorn.rb
-
